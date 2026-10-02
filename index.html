@@ -16,12 +16,22 @@ h1{font-size:clamp(40px,9vw,72px);line-height:1;letter-spacing:-.03em;font-weigh
 p{margin-top:20px;color:var(--muted);max-width:30em}
 hr{border:0;border-top:1px solid var(--rule);margin:32px 0 16px}
 small{color:var(--muted);font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+ul{list-style:none;padding:0;margin-top:32px;display:grid;gap:14px}
+a{color:var(--fg);text-decoration:none;font-weight:500;border-bottom:1px solid var(--rule);padding-bottom:2px;transition:border-color .2s}
+a:hover,a:focus-visible{border-color:var(--fg)}
+a span{display:inline-block;transition:transform .2s}
+a:hover span{transform:translate(2px,-2px)}
+li p{margin-top:4px;font-size:15px}
 </style>
 </head>
 <body>
 <main>
 <h1>Brent Leffew</h1>
 <p>Design and product. Portfolio and projects coming soon.</p>
+<ul>
+<li><a href="https://www.linkedin.com/in/brentleffew" target="_blank" rel="noopener">LinkedIn <span>↗</span></a></li>
+<li><a href="https://www.phantom5.shop" target="_blank" rel="noopener">Phantom 5 <span>↗</span></a><p>Rare and special-edition vinyl, merch and collectibles.</p></li>
+</ul>
 <hr>
 <small>brentleffew.com</small>
 </main>
