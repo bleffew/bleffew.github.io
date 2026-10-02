@@ -1,0 +1,64 @@
+/* brentleffew.com — shared foundation (v0)
+   Tokens first, then base elements, then a few reusable patterns.
+   Pages link this file and add only page-specific rules. */
+
+:root{
+  /* color */
+  --bg:#f6f4ef; --fg:#1a1a1a; --muted:#6b6b6b; --rule:#d9d5cc; --surface:#efece5;
+  /* type */
+  --font:ui-sans-serif,-apple-system,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --text-sm:13px; --text-md:15px; --text-base:17px;
+  --display:clamp(40px,9vw,72px); --title:clamp(28px,6vw,40px);
+  /* space */
+  --s1:4px; --s2:8px; --s3:14px; --s4:20px; --s5:32px; --s6:56px;
+  /* layout */
+  --measure:640px; --radius:6px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#121212; --fg:#ecebe7; --muted:#9a9890; --rule:#2c2b28; --surface:#1b1b1a; }
+}
+
+*{box-sizing:border-box;margin:0}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font:400 var(--text-base)/1.5 var(--font);padding:24px;-webkit-font-smoothing:antialiased}
+
+/* layouts */
+.page{max-width:var(--measure);margin:0 auto;width:100%}
+.page--center{min-height:calc(100vh - 48px);display:flex;flex-direction:column;justify-content:center}
+.page--top{padding-top:var(--s6);padding-bottom:var(--s6)}
+
+/* type */
+h1{font-size:var(--display);line-height:1;letter-spacing:-.03em;font-weight:600}
+h1.title{font-size:var(--title);letter-spacing:-.02em}
+h2{font-size:var(--text-sm);font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+p{color:var(--muted);max-width:32em}
+.lede{margin-top:var(--s4)}
+small,.label{color:var(--muted);font-size:var(--text-sm);letter-spacing:.04em;text-transform:uppercase}
+hr{border:0;border-top:1px solid var(--rule);margin:var(--s5) 0 var(--s3)}
+
+/* links */
+a{color:var(--fg);text-decoration:none;font-weight:500;border-bottom:1px solid var(--rule);padding-bottom:2px;transition:border-color .2s}
+a:hover,a:focus-visible{border-color:var(--fg)}
+a .arrow{display:inline-block;transition:transform .2s}
+a:hover .arrow{transform:translate(2px,-2px)}
+small a,.crumb a{font-weight:400;color:var(--muted)}
+
+/* patterns */
+.links{list-style:none;padding:0;margin-top:var(--s5);display:grid;gap:var(--s3)}
+.links p{margin-top:var(--s1);font-size:var(--text-md)}
+
+.crumb{font-size:var(--text-sm);color:var(--muted);margin-bottom:var(--s5)}
+.crumb span{margin:0 var(--s2)}
+
+.section{margin-top:var(--s6)}
+.section > h2{margin-bottom:var(--s3)}
+
+.card{border-top:1px solid var(--rule);padding:var(--s4) 0}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);flex-wrap:wrap}
+.card-head h3{font-size:20px;font-weight:600;letter-spacing:-.01em}
+.card p{margin-top:var(--s2);font-size:var(--text-md);max-width:none}
+.card .links{margin-top:var(--s3);gap:var(--s2)}
+.tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--rule);border-radius:40px;padding:2px 9px}
+.tag--live{color:var(--fg);border-color:var(--fg)}
+.note,.card .note{margin-top:var(--s3);font-size:var(--text-sm)}
+.note b{color:var(--fg);font-weight:500}
