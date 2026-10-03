@@ -85,3 +85,7 @@ small a{color:var(--muted);font-weight:600}
 .tag--live{color:var(--fg);border-color:var(--fg)}
 .note,.card .note{margin-top:var(--s3);font-size:var(--text-sm)}
 .note b{color:var(--fg);font-weight:600}
+.specimen{margin-top:var(--s3);background:#fdf9f3;border:1px solid var(--rule);padding:var(--s6) var(--s5);display:flex;justify-content:center}
+.specimen img{display:block;width:100%;max-width:440px;height:auto}
+.links--row{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3) 0}
+.links--row li + li{border-left:1px solid var(--rule);margin-left:var(--s5);padding-left:var(--s5)}
