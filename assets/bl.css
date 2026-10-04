@@ -89,3 +89,27 @@ small a{color:var(--muted);font-weight:600}
 .specimen img{display:block;width:100%;max-width:440px;height:auto}
 .links--row{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s3) 0}
 .links--row li + li{border-left:1px solid var(--rule);margin-left:var(--s5);padding-left:var(--s5)}
+
+/* preview tiles: live, scaled-down prototype previews in a grid */
+.page--wide{max-width:960px}
+.page--wide .lede{max-width:32em}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s6) var(--s5);border-top:1px solid var(--rule);padding-top:var(--s5)}
+.tile--wide{grid-column:1 / -1}
+.tile-previews{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:var(--s4)}
+.preview{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:var(--surface);border:1px solid var(--rule);padding:0;transition:border-color .2s,transform .2s}
+.preview:hover,.preview:focus-visible{border-color:var(--fg);transform:translateY(-2px)}
+.preview iframe{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;transform-origin:0 0;pointer-events:none;background:#fff}
+.chip{position:absolute;left:var(--s3);bottom:var(--s3);background:var(--fg);color:var(--bg);font:600 13px/1 var(--font-cond);letter-spacing:.12em;text-transform:uppercase;padding:8px 12px;border-radius:40px}
+.tile .card-head{margin-top:var(--s4)}
+.tile p{margin-top:var(--s2);font-size:var(--text-md)}
+@media (max-width:720px){.tiles{grid-template-columns:1fr}.tile-previews{grid-template-columns:1fr}}
+
+/* page theme: Pawtrait (cream + tan from the PAWTRAIT.love brand, brown ink kept) */
+.theme-pawtrait{--bg:#fdf9f3;--surface:#f4ece0;--fg:#2d1f17;--muted:#6b5a4c;--rule:#e0d0b8;--accent:#c49a63}
+@media (prefers-color-scheme:dark){.theme-pawtrait{--bg:#2d1f17;--surface:#382920;--fg:#fdf9f3;--muted:#cbb89c;--rule:#4d3b2f;--accent:#e0b680}}
+.theme-pawtrait .topbar{border-top-color:var(--accent)}
+.theme-pawtrait .specimen{background:#fdf9f3;border-color:var(--rule)}
+.theme-pawtrait .chip{background:#2d1f17;color:#fdf9f3}
+.brand-logo{margin-top:var(--s5);line-height:0}
+.brand-logo img{display:block;width:100%;max-width:520px;height:auto;margin:calc(min(520px,100%) * -0.0536) 0 calc(min(520px,100%) * -0.0242) calc(min(520px,100%) * -0.0673)}
+@media (prefers-color-scheme:dark){.brand-logo img{filter:brightness(0) invert(.97) sepia(.15)}}
