@@ -171,6 +171,25 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   .glow { animation: none; opacity: .8; }
   .bar::after { animation: none; width: 100%; }
 }
+.tip { position: absolute; z-index: 20; width: min(262px, calc(100vw - 24px)); padding: 12px 14px; background: var(--panel); border: 1px solid var(--open-line); border-radius: 10px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55); }
+.tip-kind { margin: 0; padding-right: 22px; color: var(--muted); font: 600 12px var(--serif); letter-spacing: .08em; text-transform: uppercase; }
+.tip-title { margin: 1px 0 0; padding-right: 22px; font: 700 23px/1.1 var(--display); }
+.tip-status { margin: 3px 0 0; font-size: 14px; font-weight: 600; }
+.tip-rows { list-style: none; margin: 9px 0 0; padding: 0; display: grid; gap: 7px; }
+.tip-rows:empty { display: none; }
+.tip-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; font-size: 14px; }
+.tip-name { min-width: 0; overflow-wrap: anywhere; }
+.tip-name b { font-weight: 700; }
+.tip-pct { font-variant-numeric: tabular-nums; font-weight: 600; }
+.tip-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.tip-bar i { display: block; height: 100%; border-radius: 2px; }
+.tip-foot { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+.tip-foot:empty { display: none; }
+.tip-x { position: absolute; top: 5px; right: 6px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; color: var(--muted); font-size: 19px; line-height: 1; }
+.tip-x:hover:not(:disabled) { color: var(--fg); }
+.tip-arrow { position: absolute; width: 12px; height: 12px; margin-left: -6px; background: var(--panel); transform: rotate(45deg); }
+.tip[data-side="above"] .tip-arrow { bottom: -7px; border-right: 1px solid var(--open-line); border-bottom: 1px solid var(--open-line); }
+.tip[data-side="below"] .tip-arrow { top: -7px; border-left: 1px solid var(--open-line); border-top: 1px solid var(--open-line); }
 .foot { max-width: 1160px; margin: 28px auto 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
 .foot a { color: var(--fg); }
 </style>
@@ -197,7 +216,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
         <button type="button" id="viewOdds" aria-pressed="false">Market odds</button>
       </div></div>
       <svg id="map" viewBox="0 0 1000 990" role="img" aria-label="Seat map of the Senate and House"></svg>
-      <p class="detail" id="detail" aria-live="polite">Tap any seat for details.</p>
+      <p class="detail">Tap any seat for details.</p>
       <div class="key">
         <ul class="legend" id="legend"></ul>
         <div class="odds-key">
@@ -207,7 +226,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       </div>
       <div class="gov-block">
         <svg id="gov" viewBox="0 0 1000 790" role="img" aria-label="Map of governor races by state"></svg>
-        <p class="detail" id="govDetail" aria-live="polite">Tap a state for details.</p>
+        <p class="detail">Tap a state for details.</p>
       </div>
     </div>
     <div class="side">
@@ -243,6 +262,15 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     </div>
   </div>
   <p class="foot"><a href="/">brentleffew.com</a></p>
+</div>
+<div class="tip" id="tip" role="status" aria-live="polite" hidden>
+  <button class="tip-x" id="tipClose" type="button" aria-label="Close details">×</button>
+  <p class="tip-kind" id="tipKind"></p>
+  <h3 class="tip-title" id="tipTitle"></h3>
+  <p class="tip-status" id="tipStatus"></p>
+  <ul class="tip-rows" id="tipRows"></ul>
+  <p class="tip-foot" id="tipFoot"></p>
+  <i class="tip-arrow" id="tipArrow" aria-hidden="true"></i>
 </div>
 
 <script>
@@ -553,7 +581,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       s.info = v;
       paintOdds(s, o, !!v.priced);
       s.g.setAttribute("aria-label", v.text);
-      s.g.classList.toggle("sel", selected === "S" + v.st && !!v.race);
+      s.g.classList.toggle("sel", v.race ? selected === v.race.key : tipSlot === s);
       if (v.race) {
         var c = changed(v.race, o);
         if (animate && (showOdds ? c.price && v.priced : c.status)) flash(s, showOdds && o ? o.side : null);
@@ -591,6 +619,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       setClass(s, cls, flip ? "flip" : "");
       s.l.setAttribute("class", lab);
       s.text = text;
+      s.info = { st: st, held: held, race: r || null, flip: flip, priced: priced };
+      s.g.classList.toggle("sel", r ? selected === r.key : tipSlot === s);
       s.g.setAttribute("aria-label", text);
       paintOdds(s, o, priced);
       if (r) {
@@ -600,56 +630,135 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     });
     // Outlined states draw last so their borders aren't covered by a neighbor.
     Object.keys(govSlots).forEach(function (st) { if (/-ahead|flip/.test(govSlots[st].cls)) govMap.insertBefore(govSlots[st].g, govTop); });
-    if (govSelected) govMap.insertBefore(govSelected.g, govTop);
+    if (tipSlot && tipSlot.gov) govMap.insertBefore(tipSlot.g, govTop);
     var dem = GOV_BASE_DEM + nD, rep = GOV_BASE_REP + nR;
     gBlock.d.textContent = dem; gBlock.r.textContent = rep;
     gBlock.n.textContent = (50 - dem - rep - nI) + " uncalled · 36 on the ballot";
     return { dem: dem, rep: rep, ind: nI, open: 50 - dem - rep - nI, flips: flips };
   }
 
-  // Taps. Details stay on the same race when marks move during an update.
-  var selected = null, govSelected = null;
-  function pick(key, text) {
-    selected = key;
-    document.querySelectorAll("#map .sel").forEach(function (n) { n.classList.remove("sel"); });
-    $("detail").textContent = text;
+  // Tap overlay. It stays on the same race when marks move during an update, and flips below the tile when there's no room above.
+  var selected = null, tipSlot = null, tip = $("tip");
+  function ordinal(n) {
+    var v = n % 100, end = ["th", "st", "nd", "rd"][(v - 20) % 10] || ["th", "st", "nd", "rd"][v] || "th";
+    return n + end;
   }
-  svg.addEventListener("click", function (e) {
-    var g = e.target.closest && e.target.closest(".seat");
-    if (g && g.hasAttribute("data-i")) {
-      var s = senateSlots[+g.getAttribute("data-i")];
-      pick(s.info.race ? s.info.race.key : null, s.info.text);
-      g.classList.add("sel");
-      return;
+  function tipModel(slot) {
+    if (slot.race !== undefined) {
+      var hr = slot.race;
+      if (!hr) return null;
+      var dist = hr.key.split("-")[1];
+      return { kind: "House · " + hr.key, title: NAMES[hr.st] + (dist === "AL" ? " At-Large" : " " + ordinal(+dist)), race: hr, odds: oddsHouse[hr.key], priced: view === "odds" && !hr.win };
     }
-    var h = e.target.getAttribute && e.target.getAttribute("data-h");
-    if (h === null || h === undefined) return;
-    var slot = houseSlots[+h];
-    if (!slot.race) return;
-    pick(slot.race.key, raceText(slot.race, false) + (view === "odds" && !slot.race.win ? oddsText(oddsHouse[slot.race.key]) : ""));
-    slot.h.classList.add("sel");
-  });
-  svg.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    var g = e.target.closest && e.target.closest(".seat");
-    if (g) { e.preventDefault(); g.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
-  });
-  function selectGov(slot) {
-    if (govSelected) govSelected.g.classList.remove("sel");
-    govSelected = slot;
-    slot.g.classList.add("sel");
-    govMap.insertBefore(slot.g, govTop);
-    $("govDetail").textContent = slot.text;
+    var v = slot.info;
+    if (!v) return null;
+    var map = slot.gov ? (oddsData.gov || {}) : (oddsData.senate || {});
+    return { kind: slot.gov ? "Governor" : "Senate", title: NAMES[v.st], race: v.race || null, flip: v.flip, held: slot.gov ? v.held : !v.race && /dim$/.test(v.cls) ? v.cls.charAt(0).toUpperCase() : null, odds: map[v.st], priced: v.priced };
   }
-  govSvg.addEventListener("click", function (e) {
-    var g = e.target.closest && e.target.closest(".seat");
-    if (g && g.hasAttribute("data-st")) selectGov(govSlots[g.getAttribute("data-st")]);
+  function fillTip(slot) {
+    var m = tipModel(slot);
+    if (!m) return false;
+    $("tipKind").textContent = m.kind;
+    $("tipTitle").textContent = m.title;
+    var st = $("tipStatus"), rows = $("tipRows"), r = m.race, foot = "";
+    rows.textContent = "";
+    st.style.color = "";
+    if (!r) {
+      st.textContent = m.held ? "Not on the ballot this year" : "No data yet";
+      if (m.held) foot = "Held by " + (m.held === "I" ? "an independent who caucuses with Democrats" : "a " + partyName(m.held)) + ".";
+    } else {
+      var shown = r.c.filter(function (k) { return k.votes > 0; }).slice(0, 3);
+      if (!shown.length) shown = r.c.slice(0, 2);
+      shown.forEach(function (k) {
+        var li = document.createElement("li"); li.className = "tip-row";
+        var name = document.createElement("span"); name.className = "tip-name";
+        var b = document.createElement("b"); b.textContent = (k.win ? "✓ " : "") + k.name;
+        name.appendChild(b); name.appendChild(document.createTextNode(" (" + k.p + ")"));
+        var pct = document.createElement("span"); pct.className = "tip-pct"; pct.textContent = k.pct.toFixed(1) + "%";
+        var bar = document.createElement("span"); bar.className = "tip-bar";
+        var fill = document.createElement("i"); fill.style.width = Math.min(100, k.pct) + "%"; fill.style.background = color(k.p);
+        bar.appendChild(fill);
+        li.appendChild(name); li.appendChild(pct); li.appendChild(bar); rows.appendChild(li);
+      });
+      if (r.win) { st.textContent = "Called for " + r.win.last + (m.flip ? ", flipped this seat" : ""); st.style.color = color(r.win.p); }
+      else if (r.lead) { st.textContent = "Not called. " + r.lead.last + " ahead"; st.style.color = color(r.lead.p); }
+      else st.textContent = r.c[0] && r.c[0].votes ? "Not called. Tied" : "Not called. No votes yet";
+      foot = r.pct + "% in.";
+      if (m.priced) foot += oddsText(m.odds);
+    }
+    $("tipFoot").textContent = foot;
+    return true;
+  }
+  function placeTip(slot) {
+    var GAP = 12, EDGE = 8;
+    var anchor = slot.gov && !slot.out ? slot.l : slot.h;
+    var box = anchor.getBoundingClientRect();
+    var x = box.left + box.width / 2 + window.scrollX, top = box.top + window.scrollY, bottom = box.bottom + window.scrollY;
+    tip.hidden = false;
+    var w = tip.offsetWidth, h = tip.offsetHeight, page = document.documentElement.clientWidth;
+    var below = box.top - h - GAP < EDGE;
+    var left = Math.max(EDGE, Math.min(page - w - EDGE, x - w / 2));
+    tip.dataset.side = below ? "below" : "above";
+    tip.style.left = left + "px";
+    tip.style.top = (below ? bottom + GAP : top - h - GAP) + "px";
+    $("tipArrow").style.left = Math.max(16, Math.min(w - 16, x - left)) + "px";
+  }
+  function clearSel() {
+    document.querySelectorAll("#map .sel, #gov .sel").forEach(function (n) { n.classList.remove("sel"); });
+  }
+  function closeTip() {
+    selected = null; tipSlot = null;
+    clearSel();
+    tip.hidden = true;
+  }
+  function openTip(slot) {
+    var r = slot.race !== undefined ? slot.race : slot.info && slot.info.race;
+    var key = r ? r.key : null;
+    if (tipSlot === slot) { closeTip(); return; }
+    clearSel();
+    if (!fillTip(slot)) { closeTip(); return; }
+    selected = key; tipSlot = slot;
+    (slot.g || slot.h).classList.add("sel");
+    if (slot.gov) govMap.insertBefore(slot.g, govTop);
+    placeTip(slot);
+  }
+  function refreshTip() {
+    if (!tipSlot) return;
+    if (selected) {
+      var all = senateSlots.concat(houseSlots, Object.keys(govSlots).map(function (k) { return govSlots[k]; }));
+      tipSlot = all.filter(function (x) {
+        var r = x.race !== undefined ? x.race : x.info && x.info.race;
+        return r && r.key === selected;
+      })[0] || null;
+    }
+    if (!tipSlot || !fillTip(tipSlot)) { closeTip(); return; }
+    (tipSlot.g || tipSlot.h).classList.add("sel");
+    placeTip(tipSlot);
+  }
+  function slotFor(target) {
+    var g = target.closest && target.closest(".seat");
+    if (g && g.hasAttribute("data-i")) return senateSlots[+g.getAttribute("data-i")];
+    if (g && g.hasAttribute("data-st")) return govSlots[g.getAttribute("data-st")];
+    var h = target.getAttribute && target.getAttribute("data-h");
+    return h === null || h === undefined ? null : houseSlots[+h];
+  }
+  [svg, govSvg].forEach(function (host) {
+    host.addEventListener("click", function (e) {
+      var slot = slotFor(e.target);
+      if (slot) openTip(slot);
+    });
+    host.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var slot = slotFor(e.target);
+      if (slot) { e.preventDefault(); openTip(slot); }
+    });
   });
-  govSvg.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    var g = e.target.closest && e.target.closest(".seat");
-    if (g) { e.preventDefault(); selectGov(govSlots[g.getAttribute("data-st")]); }
+  $("tipClose").addEventListener("click", closeTip);
+  document.addEventListener("click", function (e) {
+    if (tipSlot && !tip.contains(e.target) && !slotFor(e.target) && !e.target.closest(".view-switch, #checkBtn")) closeTip();
   });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && tipSlot) closeTip(); });
+  window.addEventListener("resize", function () { if (tipSlot) placeTip(tipSlot); });
 
   function legendItem(cls, text) {
     var li = document.createElement("li");
@@ -726,13 +835,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       renderLists(model, s.flips.concat(g.flips));
     }
     renderOddsNote();
-    if (selected) {
-      var hit = senateSlots.filter(function (x) { return x.info && x.info.race && x.info.race.key === selected; })[0];
-      var hs = houseSlots.filter(function (x) { return x.race && x.race.key === selected; })[0];
-      if (hit) $("detail").textContent = hit.info.text;
-      else if (hs) $("detail").textContent = raceText(hs.race, false) + (view === "odds" && !hs.race.win ? oddsText(oddsHouse[hs.race.key]) : "");
-    }
-    if (govSelected) $("govDetail").textContent = govSelected.text;
+    refreshTip();
     svg.setAttribute("aria-label", "Senate: Democrats " + s.dem + ", Republicans " + s.rep + ", " + s.open + " uncalled. House: Democrats " + h.dem + ", Republicans " + h.rep + ", " + h.open + " uncalled.");
     govSvg.setAttribute("aria-label", "Governors: Democrats " + g.dem + ", Republicans " + g.rep + ", " + g.open + " uncalled.");
   }
