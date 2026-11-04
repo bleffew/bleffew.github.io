@@ -1,4 +1,4 @@
-// Fetches Kalshi prices for uncalled 2026 races and writes odds.json for /midterms/.
+// Fetches Kalshi prices for uncalled 2026 races and writes odds.json for /elections/.
 // Kalshi's API can't be called from a browser, so this runs on a schedule instead.
 import { writeFile } from "node:fs/promises";
 
