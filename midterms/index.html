@@ -11,7 +11,7 @@
 <meta property="og:title" content="Midterm Seat Map">
 <meta property="og:description" content="Live seat map of the 2026 Senate, House and governor races, with one mark per race and Kalshi odds.">
 <meta property="og:url" content="https://brentleffew.com/midterms/">
-<meta property="og:image" content="https://brentleffew.com/midterms/og.png">
+<meta property="og:image" content="https://brentleffew.com/midterms/og2.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -19,7 +19,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Midterm Seat Map">
 <meta name="twitter:description" content="Live seat map of the 2026 Senate, House and governor races, with one mark per race and Kalshi odds.">
-<meta name="twitter:image" content="https://brentleffew.com/midterms/og.png">
+<meta name="twitter:image" content="https://brentleffew.com/midterms/og2.png">
 <meta name="theme-color" content="#0B0E16">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -108,7 +108,7 @@ svg#map { display: block; width: 100%; height: auto; max-width: 860px; margin: 0
 .seat { cursor: pointer; }
 .seat:hover .h { stroke: var(--fg); stroke-width: 2; }
 .seat.sel .h { stroke: var(--fg); stroke-width: 3.5; }
-.lab { font: 700 16px var(--display); text-anchor: middle; dominant-baseline: central; pointer-events: none; letter-spacing: .03em; fill: var(--on-dim); }
+.lab { font: 700 19px var(--display); text-anchor: middle; dominant-baseline: central; pointer-events: none; letter-spacing: .03em; fill: var(--on-dim); }
 .lab.bright { fill: var(--on-bright); }
 .lab.big { font-size: 21px; }
 .lab.tiny { font-size: 14px; }
@@ -174,7 +174,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   .side { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
-  .lab { font-size: 21px; }
+  .lab { font-size: 25px; }
   .lab.big { font-size: 27px; }
   .lab.tiny { font-size: 18px; }
   .lab.out { font-size: 19px; }
@@ -241,7 +241,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
         <button type="button" id="viewResults" aria-pressed="true">Results</button>
         <button type="button" id="viewOdds" aria-pressed="false">Market odds</button>
       </div></div>
-      <svg id="map" viewBox="0 0 1000 990" role="img" aria-label="Seat map of the Senate and House"></svg>
+      <svg id="map" viewBox="0 0 1000 1064" role="img" aria-label="Seat map of the Senate and House"></svg>
       <div class="maj" id="bars"></div>
       <p class="detail">Tap any seat for details.</p>
       <div class="key">
@@ -308,7 +308,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   var ODDS_URL = "https://raw.githubusercontent.com/bleffew/bleffew.github.io/data/odds.json";
   var POLL_MS = 60000;
   var NS = "http://www.w3.org/2000/svg";
-  var CX = 500, Y_SENATE = 440, Y_HOUSE = 470;
+  var CX = 500, Y_SENATE = 515, Y_HOUSE = 545;
 
   // Senate seats not on the 2026 ballot: 32 Democrats, 2 independents, 31 Republicans.
   var HELD_D = "AZ AZ CA CA CO CT CT DE GA HI HI IL MD MD MA MI MN NV NV NH NJ NM NY NY OR PA RI VT VA WA WA WI".split(" ");
@@ -371,8 +371,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
 
   var svg = $("map");
   var defs = el("defs", {}, svg);
-  el("path", { id: "arcS", d: "M " + (CX - 410) + " " + Y_SENATE + " A 410 410 0 0 1 " + (CX + 410) + " " + Y_SENATE, fill: "none" }, defs);
-  el("path", { id: "arcH", d: "M " + (CX - 494) + " " + Y_HOUSE + " A 494 494 0 0 0 " + (CX + 494) + " " + Y_HOUSE, fill: "none" }, defs);
+  el("path", { id: "arcS", d: "M " + (CX - 494) + " " + Y_SENATE + " A 494 494 0 0 1 " + (CX + 494) + " " + Y_SENATE, fill: "none" }, defs);
+  el("path", { id: "arcH", d: "M " + (CX - 505) + " " + Y_HOUSE + " A 505 505 0 0 0 " + (CX + 505) + " " + Y_HOUSE, fill: "none" }, defs);
   [["backlitS", 7], ["backlitM", 11], ["backlitL", 14]].forEach(function (f) {
     var filter = el("filter", { id: f[0], x: "-150%", y: "-150%", width: "400%", height: "400%" }, defs);
     el("feGaussianBlur", { stdDeviation: f[1] }, filter);
@@ -385,12 +385,12 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   arcLabel("arcH", "LOWER CHAMBER  ·  435 SEATS");
   el("line", { class: "floor", x1: 20, x2: 980, y1: (Y_SENATE + Y_HOUSE) / 2, y2: (Y_SENATE + Y_HOUSE) / 2 }, svg);
 
-  var senateSlots = layout(100, 180, 372, 5, 20.5).map(function (s, i) {
+  var senateSlots = layout(100, 218, 453, 5, 25).map(function (s, i) {
     var a = Math.PI * s.t, x = CX - s.r * Math.cos(a), y = Y_SENATE - s.r * Math.sin(a);
     var g = el("g", { class: "seat", tabindex: "0", role: "button", "data-i": i }, svg);
-    var h = el("polygon", { class: "h open", points: hexPoints(x, y, 20.5) }, g);
+    var h = el("polygon", { class: "h open", points: hexPoints(x, y, 25) }, g);
     var l = el("text", { class: "lab", x: x.toFixed(1), y: (y + .5).toFixed(1) }, g);
-    return { g: g, h: h, l: l, info: null, cls: "h open", x: x, y: y, r: 20.5, blur: "backlitM" };
+    return { g: g, h: h, l: l, info: null, cls: "h open", x: x, y: y, r: 25, blur: "backlitM" };
   });
   var houseSlots = layout(435, 205, 466, 11, 12.3).map(function (s, i) {
     var a = Math.PI * s.t, x = CX - s.r * Math.cos(a), y = Y_HOUSE + s.r * Math.sin(a);
@@ -398,7 +398,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     return { h: h, cls: "h open", x: x, y: y, r: 12.3, blur: "backlitS", race: null };
   });
 
-  el("line", { class: "aisle", x1: CX, x2: CX, y1: Y_SENATE - 396, y2: Y_SENATE - 158 }, svg);
+  el("line", { class: "aisle", x1: CX, x2: CX, y1: Y_SENATE - 480, y2: Y_SENATE - 192 }, svg);
   el("line", { class: "aisle", x1: CX, x2: CX, y1: Y_HOUSE + 192, y2: Y_HOUSE + 480 }, svg);
 
   function centerBlock(host, x, y0, name, scoreY, needY) {
