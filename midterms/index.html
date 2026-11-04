@@ -4,7 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Midterm Seat Map</title>
-<meta name="description" content="Live seat map of the 2026 Senate, House and governor races, with one mark per race.">
+<meta name="description" content="Live seat map of the 2026 Senate, House and governor races, with one mark per race and Kalshi odds.">
+<link rel="canonical" href="https://brentleffew.com/midterms/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Brent Leffew">
+<meta property="og:title" content="Midterm Seat Map">
+<meta property="og:description" content="Live seat map of the 2026 Senate, House and governor races, with one mark per race and Kalshi odds.">
+<meta property="og:url" content="https://brentleffew.com/midterms/">
+<meta property="og:image" content="https://brentleffew.com/midterms/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Midterm Seat Map: a US map of governor races beside a ring of Senate and House seats, colored by party.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Midterm Seat Map">
+<meta name="twitter:description" content="Live seat map of the 2026 Senate, House and governor races, with one mark per race and Kalshi odds.">
+<meta name="twitter:image" content="https://brentleffew.com/midterms/og.png">
 <meta name="theme-color" content="#0B0E16">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -166,11 +181,22 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   .check-note, .asof { text-align: left; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .h { transition: none; }
+  .h, .maj-seg { transition: none; }
   .spin, .pill[data-state="busy"] .dot { animation: none; }
   .glow { animation: none; opacity: .8; }
   .bar::after { animation: none; width: 100%; }
 }
+.maj { display: grid; gap: 12px; max-width: 860px; margin: 12px auto 0; }
+.maj-row { position: relative; padding-top: 21px; }
+.maj-name { position: absolute; left: 0; top: 0; color: var(--muted); font: 600 13px var(--serif); letter-spacing: .08em; text-transform: uppercase; }
+.maj-need { position: absolute; top: 0; transform: translateX(-50%); color: var(--fg); font-size: 13px; white-space: nowrap; }
+.maj-bar { display: flex; height: 24px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.maj-seg { display: flex; align-items: center; justify-content: center; min-width: 0; font: 700 15px var(--display); font-variant-numeric: tabular-nums; transition: flex-grow .6s ease; }
+.maj-d { background: var(--dem); color: var(--on-bright); }
+.maj-r { background: var(--rep); color: var(--on-bright); }
+.maj-i { background: var(--ind); color: var(--on-bright); }
+.maj-o { background: #5C6478; color: var(--fg); }
+.maj-tick { position: absolute; top: 18px; bottom: -3px; width: 0; border-left: 1.5px dashed var(--fg); pointer-events: none; }
 .tip { position: absolute; z-index: 20; width: min(262px, calc(100vw - 24px)); padding: 12px 14px; background: var(--panel); border: 1px solid var(--open-line); border-radius: 10px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55); }
 .tip-kind { margin: 0; padding-right: 22px; color: var(--muted); font: 600 12px var(--serif); letter-spacing: .08em; text-transform: uppercase; }
 .tip-title { margin: 1px 0 0; padding-right: 22px; font: 700 23px/1.1 var(--display); }
@@ -216,6 +242,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
         <button type="button" id="viewOdds" aria-pressed="false">Market odds</button>
       </div></div>
       <svg id="map" viewBox="0 0 1000 990" role="img" aria-label="Seat map of the Senate and House"></svg>
+      <div class="maj" id="bars"></div>
       <p class="detail">Tap any seat for details.</p>
       <div class="key">
         <ul class="legend" id="legend"></ul>
@@ -226,6 +253,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       </div>
       <div class="gov-block">
         <svg id="gov" viewBox="0 0 1000 790" role="img" aria-label="Map of governor races by state"></svg>
+        <div class="maj" id="govBar"></div>
         <p class="detail">Tap a state for details.</p>
       </div>
     </div>
@@ -815,6 +843,36 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     open.forEach(function (x) { listRow(c, x.tag, x.r.lead.p, x.kind + " · " + count(x.r)); });
   }
 
+  // Majority bars: Democrats fill from the left, Republicans from the right, and the dashed line marks the seats needed.
+  var barRows = {};
+  function barRow(host, id, name, need, needText, total) {
+    var row = document.createElement("div"); row.className = "maj-row"; row.setAttribute("role", "img");
+    var label = document.createElement("span"); label.className = "maj-name"; label.textContent = name;
+    var mark = document.createElement("span"); mark.className = "maj-need"; mark.textContent = needText; mark.style.left = need / total * 100 + "%";
+    var bar = document.createElement("div"); bar.className = "maj-bar";
+    var segs = {};
+    ["d", "i", "o", "r"].forEach(function (k) {
+      var n = document.createElement("span"); n.className = "maj-seg maj-" + k; bar.appendChild(n); segs[k] = n;
+    });
+    var tick = document.createElement("i"); tick.className = "maj-tick"; tick.style.left = need / total * 100 + "%";
+    row.appendChild(label); row.appendChild(mark); row.appendChild(bar); row.appendChild(tick);
+    $(host).appendChild(row);
+    barRows[id] = { row: row, segs: segs, name: name, needText: needText };
+  }
+  barRow("bars", "senate", "Senate", 51, "51 to win", 100);
+  barRow("bars", "house", "House", 218, "218 to win", 435);
+  barRow("govBar", "gov", "Governors", 26, "26 for a majority", 50);
+  function setBar(id, dem, rep, other, open) {
+    var b = barRows[id];
+    [["d", dem], ["i", other], ["o", open], ["r", rep]].forEach(function (x) {
+      var n = b.segs[x[0]];
+      n.style.flexGrow = x[1];
+      n.style.flexBasis = "0";
+      n.textContent = x[1] > 0 ? x[1] : "";
+    });
+    b.row.setAttribute("aria-label", b.name + ": Democrats " + dem + ", " + open + " uncalled, Republicans " + rep + (other ? ", other " + other : "") + ". " + b.needText + ".");
+  }
+
   function renderOddsNote() {
     var c = oddsData.control || {}, parts = [];
     if (c.senate) parts.push("Senate control: " + c.senate + ".");
@@ -834,6 +892,9 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       renderControl(h, s, g);
       renderLists(model, s.flips.concat(g.flips));
     }
+    setBar("senate", s.dem, s.rep, s.ind, s.open);
+    setBar("house", h.dem, h.rep, 435 - h.dem - h.rep - h.open, h.open);
+    setBar("gov", g.dem, g.rep, g.ind, g.open);
     renderOddsNote();
     refreshTip();
     svg.setAttribute("aria-label", "Senate: Democrats " + s.dem + ", Republicans " + s.rep + ", " + s.open + " uncalled. House: Democrats " + h.dem + ", Republicans " + h.rep + ", " + h.open + " uncalled.");
