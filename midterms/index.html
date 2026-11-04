@@ -55,6 +55,8 @@ body {
   padding-block: 20px 40px;
 }
 .wrap { max-width: 1160px; margin: 0 auto; display: grid; gap: 20px; }
+.final-note { margin: 0 0 18px; padding: 10px 14px; background: var(--panel); border: 2px solid var(--fg); border-radius: 8px; font-weight: 600; }
+#checkBtn[hidden] { display: none; }
 header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
 header > div { min-width: 0; }
 h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 5vw, 44px); line-height: 1; margin: 0; letter-spacing: .01em; text-wrap: balance; }
@@ -233,6 +235,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
 <body>
 <div class="news" id="news" aria-live="polite"></div>
 <div class="wrap">
+  <p class="final-note" id="finalNote" hidden>All election results from 2026 are in. This map is final.</p>
   <header>
     <div>
       <h1>Midterm Seat Map</h1>
@@ -294,8 +297,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       </section>
       <section>
         <h2>Where the numbers come from</h2>
-        <p class="src">Results and race calls: <a href="https://civicapi.org" target="_blank" rel="noopener">civicAPI</a>, checked every minute.</p>
-        <p class="src" id="oddsSource">Market odds: <a href="https://kalshi.com/category/elections" target="_blank" rel="noopener">Kalshi</a> last trades, updated by a scheduled job about every 5 minutes.</p>
+        <p class="src">Results and race calls: <a href="https://civicapi.org" target="_blank" rel="noopener">civicAPI</a>, <span id="checkEvery">checked every minute</span>.</p>
+        <p class="src" id="oddsSource">Market odds: <a href="https://kalshi.com/category/elections" target="_blank" rel="noopener">Kalshi</a> last trades, updated from time to time.</p>
         <p class="note">These are unofficial results and may change. Check your state election office for official counts.</p>
       </section>
     </div>
@@ -318,6 +321,15 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   var API = "https://civicapi.org/api/v2/race/search?startDate=2026-11-03&endDate=2026-11-03&country=US&limit=2000&election_type=";
   var ODDS_URL = "https://raw.githubusercontent.com/bleffew/bleffew.github.io/data/odds.json";
   var POLL_MS = 60000;
+  // Checks slow down as counting winds down. Federal election dates always fall after daylight saving ends, so Pacific is -08:00.
+  var ELECTION_DATE = "2026-11-03", DAY_MS = 86400000;
+  var FAST_UNTIL = Date.parse(ELECTION_DATE + "T12:00:00-08:00") + DAY_MS;
+  var HALF_HOUR_UNTIL = Date.parse(ELECTION_DATE + "T00:00:00-08:00") + 2 * DAY_MS;
+  function pollMs() {
+    var now = Date.now();
+    return now < FAST_UNTIL ? POLL_MS : now < HALF_HOUR_UNTIL ? 1800000 : 3600000;
+  }
+  var lastTry = 0, locked = false;
   var NS = "http://www.w3.org/2000/svg";
   var CX = 500, Y_SENATE = 515, Y_HOUSE = 545;
 
@@ -487,6 +499,10 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       if (x.type === "Governor" && NAMES[x.province] && !GOV_HELD[x.province]) m.gov[x.province] = norm(x, "G" + x.province, NAMES[x.province]);
     });
     return m;
+  }
+  function allIn(m) {
+    var senate = Object.keys(m.senate), gov = Object.keys(m.gov);
+    return m.house.length >= 435 && senate.length === UP.length && gov.length === 36 && called(m) === m.house.length + senate.length + gov.length;
   }
   function statusKey(r) { return r.win ? "W" + r.win.p : r.lead ? "L" + r.lead.p : "N"; }
   function called(m) {
@@ -1003,7 +1019,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     return fetchJson(ODDS_URL + "?t=" + Math.floor(Date.now() / 60000)).then(function (d) { oddsData = d || {}; }).catch(function () {});
   }
   function poll(manual) {
-    if (busy) return;
+    if (busy || locked) return;
+    lastTry = Date.now();
     setBusy(true);
     var before = firstData ? null : called(model);
     var wonBefore = {};
@@ -1014,6 +1031,10 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       render();
       firstData = false;
       lastOk = Date.now(); failed = false;
+      locked = allIn(model);
+      $("finalNote").hidden = !locked;
+      $("checkBtn").hidden = locked;
+      setCadence();
       var more = before === null ? 0 : called(model) - before;
       if (before !== null) {
         var fresh = allRaces(model).filter(function (r) { return r.win && !wonBefore[r.key]; });
@@ -1030,15 +1051,22 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   function tick() {
     var pill = $("pill"), text = $("pillText");
     if (busy) { pill.dataset.state = "busy"; text.textContent = lastOk ? "Checking for updates" : "Loading results"; return; }
+    if (locked) { pill.dataset.state = "fresh"; text.textContent = "Final"; return; }
     if (!lastOk) { pill.dataset.state = "stale"; text.textContent = "Waiting for results"; return; }
     var secs = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
-    pill.dataset.state = failed ? "aging" : secs < 150 ? "fresh" : secs < 600 ? "aging" : "stale";
+    var every = pollMs() / 1000;
+    pill.dataset.state = failed ? "aging" : secs < Math.max(150, every * 1.1) ? "fresh" : secs < Math.max(600, every * 2.2) ? "aging" : "stale";
     text.textContent = (failed ? "Last update " : "Live, updated ") + (secs < 60 ? secs + " sec ago" : Math.round(secs / 60) + " min ago");
   }
   setInterval(tick, 1000);
-  setInterval(function () { if (document.visibilityState === "visible") poll(false); }, POLL_MS);
+  function setCadence() {
+    var ms = pollMs();
+    $("checkEvery").textContent = locked ? "final" : "checked every " + (ms === POLL_MS ? "minute" : ms === 1800000 ? "30 minutes" : "hour");
+  }
+  function due() { return !locked && Date.now() - lastTry >= (failed ? POLL_MS : pollMs()); }
+  setInterval(function () { if (document.visibilityState === "visible" && due()) poll(false); }, 5000);
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible" && Date.now() - lastOk > POLL_MS) poll(false);
+    if (document.visibilityState === "visible" && due()) poll(false);
   });
   $("checkBtn").addEventListener("click", function () { setNote("", false); poll(true); });
 
@@ -1046,6 +1074,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   $("viewResults").setAttribute("aria-pressed", view === "results");
   $("viewOdds").setAttribute("aria-pressed", view === "odds");
   render();
+  setCadence();
   poll(false);
 })();
 </script>

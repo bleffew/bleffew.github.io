@@ -3,7 +3,7 @@ name: Midterm odds
 # Publishes Kalshi prices for /midterms/ to the data branch, so the site itself isn't rebuilt on every update.
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
