@@ -1,0 +1,38 @@
+name: Midterm odds
+
+# Publishes Kalshi prices for /midterms/ to the data branch, so the site itself isn't rebuilt on every update.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: midterm-odds
+  cancel-in-progress: false
+
+jobs:
+  odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node .github/scripts/midterm-odds.mjs
+      - name: Publish to the data branch
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          [ -f odds.json ] || exit 0
+          mkdir publish && mv odds.json publish/ && cd publish
+          git init -q -b data
+          git config user.name "midterm-odds"
+          git config user.email "actions@users.noreply.github.com"
+          git add odds.json
+          git commit -q -m "Update odds"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${REPO}.git" data
