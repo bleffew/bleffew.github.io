@@ -598,18 +598,18 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
           if (seen[hr.key] !== undefined) m.house[seen[hr.key]] = hr;
           else { seen[hr.key] = m.house.length; m.house.push(hr); }
         }
-      } else if (x.type === "US Senate" && UP.indexOf(x.province) >= 0) {
+      } else if (x.type === "US Senate" && LIVE_SEATS.UP.indexOf(x.province) >= 0) {
         m.senate[x.province] = norm(x, "S" + x.province, NAMES[x.province]);
       }
     });
     (statewide.races || []).filter(keep).sort(byDate).forEach(function (x) {
-      if (x.type === "Governor" && NAMES[x.province] && !GOV_HELD[x.province]) m.gov[x.province] = norm(x, "G" + x.province, NAMES[x.province]);
+      if (x.type === "Governor" && NAMES[x.province] && !LIVE_GOV.GOV_HELD[x.province]) m.gov[x.province] = norm(x, "G" + x.province, NAMES[x.province]);
     });
     return m;
   }
   function allIn(m) {
     var senate = Object.keys(m.senate), gov = Object.keys(m.gov);
-    return m.house.length >= 435 && senate.length === UP.length && gov.length === 36 && called(m) === m.house.length + senate.length + gov.length;
+    return m.house.length >= 435 && senate.length === LIVE_SEATS.UP.length && gov.length === 36 && called(m) === m.house.length + senate.length + gov.length;
   }
   // A past race in the same shape as a live one, so the same drawing code handles both.
   function pastRace(o, key, label) {
