@@ -174,6 +174,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   .side { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
+  .news-item { gap: 8px; }
+  .news-text { font-size: 14px; }
   .lab { font-size: 25px; }
   .lab.big { font-size: 27px; }
   .lab.tiny { font-size: 18px; }
@@ -197,6 +199,14 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
 .maj-i { background: var(--ind); color: var(--on-bright); }
 .maj-o { background: #5C6478; color: var(--fg); }
 .maj-tick { position: absolute; top: 18px; bottom: -3px; width: 0; border-left: 1.5px dashed var(--fg); pointer-events: none; }
+.news { position: fixed; z-index: 30; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 50%; transform: translateX(-50%); width: min(660px, calc(100vw - 24px)); display: grid; gap: 6px; pointer-events: none; }
+.news-item { --c: var(--fg); pointer-events: auto; display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 6px 8px 8px; background: var(--panel); border: 2px solid var(--c); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .55); cursor: pointer; }
+.news-tag { flex: none; padding: 3px 8px; border-radius: 4px; background: var(--c); color: var(--on-bright); font: 700 14px var(--display); letter-spacing: .08em; white-space: nowrap; }
+.news-text { flex: 1; min-width: 0; font-size: 15px; line-height: 1.3; }
+.news-text b { font-weight: 700; }
+.news-text small { color: var(--muted); font-size: 13px; }
+.news-x { flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; color: var(--muted); font-size: 18px; line-height: 1; }
+.news-more { pointer-events: auto; justify-self: center; padding: 3px 12px; background: var(--panel); border: 1px solid var(--open-line); border-radius: 999px; color: var(--muted); font-size: 13px; }
 .tip { position: absolute; z-index: 20; width: min(262px, calc(100vw - 24px)); padding: 12px 14px; background: var(--panel); border: 1px solid var(--open-line); border-radius: 10px; box-shadow: 0 10px 28px rgba(0, 0, 0, .55); }
 .tip-kind { margin: 0; padding-right: 22px; color: var(--muted); font: 600 12px var(--serif); letter-spacing: .08em; text-transform: uppercase; }
 .tip-title { margin: 1px 0 0; padding-right: 22px; font: 700 23px/1.1 var(--display); }
@@ -221,6 +231,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
 </style>
 </head>
 <body>
+<div class="news" id="news" aria-live="polite"></div>
 <div class="wrap">
   <header>
     <div>
@@ -912,6 +923,60 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   $("viewResults").addEventListener("click", function () { setView("results"); });
   $("viewOdds").addEventListener("click", function () { setView("odds"); });
 
+  // New-result headlines. They float over the page so nothing shifts, and tapping one opens that race.
+  var NEWS_MS = 300000, NEWS_SHOWN = 3, news = [];
+  function raceFlip(r) {
+    if (!r.win || r.key.indexOf("-") >= 0) return false;
+    var list = r.key.charAt(0) === "S" ? UP_WAS_D : GOV_UP_WAS_D;
+    return r.win.p !== (list.indexOf(r.st) >= 0 ? "D" : "R");
+  }
+  function raceTitle(r) {
+    if (r.key.charAt(0) === "S" && r.key.indexOf("-") < 0) return r.label + " Senate";
+    if (r.key.charAt(0) === "G" && r.key.indexOf("-") < 0) return r.label + " governor";
+    var d = r.key.split("-")[1];
+    return NAMES[r.st] + (d === "AL" ? " At-Large" : " " + ordinal(+d)) + " House";
+  }
+  function allRaces(m) {
+    return m.house.concat(Object.keys(m.senate).map(function (k) { return m.senate[k]; }), Object.keys(m.gov).map(function (k) { return m.gov[k]; }));
+  }
+  function slotOf(key) {
+    return senateSlots.concat(houseSlots, Object.keys(govSlots).map(function (k) { return govSlots[k]; })).filter(function (x) {
+      var r = x.race !== undefined ? x.race : x.info && x.info.race;
+      return r && r.key === key;
+    })[0];
+  }
+  function renderNews() {
+    var box = $("news"), now = Date.now();
+    news = news.filter(function (n) { return now - n.at < NEWS_MS; });
+    box.textContent = "";
+    news.slice(0, NEWS_SHOWN).forEach(function (n) {
+      var r = n.race, a = r.win, b = r.c.filter(function (k) { return !k.win; })[0];
+      var item = document.createElement("div"); item.className = "news-item"; item.style.setProperty("--c", color(a.p));
+      var tag = document.createElement("span"); tag.className = "news-tag"; tag.textContent = "NEW RESULT";
+      var text = document.createElement("span"); text.className = "news-text";
+      var title = document.createElement("b"); title.textContent = raceTitle(r);
+      text.appendChild(title);
+      text.appendChild(document.createTextNode(" called for " + a.last + " (" + a.p + ")" + (b ? ", " + a.pct.toFixed(1) + " to " + b.pct.toFixed(1) : "") + (raceFlip(r) ? ". Flipped the seat." : ".") + " "));
+      var when = document.createElement("small"); when.textContent = clock(n.at);
+      text.appendChild(when);
+      var x = document.createElement("button"); x.type = "button"; x.className = "news-x"; x.setAttribute("aria-label", "Dismiss"); x.textContent = "×";
+      x.addEventListener("click", function (e) { e.stopPropagation(); news.splice(news.indexOf(n), 1); renderNews(); });
+      item.addEventListener("click", function () {
+        var slot = slotOf(r.key);
+        if (!slot) return;
+        slot.h.scrollIntoView({ block: "center", behavior: "smooth" });
+        setTimeout(function () { if (tipSlot !== slot) openTip(slot); }, 450);
+      });
+      item.appendChild(tag); item.appendChild(text); item.appendChild(x); box.appendChild(item);
+    });
+    if (news.length > NEWS_SHOWN) {
+      var more = document.createElement("span"); more.className = "news-more";
+      more.textContent = "+" + (news.length - NEWS_SHOWN) + " more";
+      box.appendChild(more);
+    }
+  }
+  setInterval(renderNews, 30000);
+
   // Live updates.
   var busy = false, lastOk = 0, failed = false;
   function fetchJson(url) {
@@ -941,6 +1006,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     if (busy) return;
     setBusy(true);
     var before = firstData ? null : called(model);
+    var wonBefore = {};
+    allRaces(model).forEach(function (r) { if (r.win) wonBefore[r.key] = true; });
     Promise.all([fetchJson(API + "General"), fetchJson(API + "Statewide"), loadOdds()]).then(function (res) {
       model = build(res[0], res[1]);
       if (!model.house.length) throw new Error("empty");
@@ -948,6 +1015,11 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       firstData = false;
       lastOk = Date.now(); failed = false;
       var more = before === null ? 0 : called(model) - before;
+      if (before !== null) {
+        var fresh = allRaces(model).filter(function (r) { return r.win && !wonBefore[r.key]; });
+        fresh.forEach(function (r) { news.unshift({ race: r, at: lastOk }); });
+        if (fresh.length) renderNews();
+      }
       if (more > 0) setNote("New at " + clock(lastOk) + ": " + more + (more === 1 ? " race called." : " races called."), true);
       else if (manual) setNote("Refreshed at " + clock(lastOk) + ". Nothing new called.", true);
     }).catch(function () {
