@@ -31,9 +31,9 @@ h1{margin:0;font-family:var(--display);font-weight:700;font-size:clamp(56px,9vw,
 h2{margin:0;font-family:var(--serif);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .block{display:flex;flex-direction:column;gap:12px;padding-bottom:48px}
 .block:last-of-type{padding-bottom:72px}
-.feat{display:grid;grid-template-columns:minmax(0,1fr) 320px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;transition:border-color .2s}
+.feat{display:grid;grid-template-columns:minmax(0,1fr) 320px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:hidden;transition:border-color .2s}
 .feat img{width:100%;height:auto;display:block}
-.feat-text{display:flex;flex-direction:column;justify-content:center;gap:12px;padding:32px;border-left:1px solid var(--line)}
+.feat-text{align-self:stretch;background:var(--panel);display:flex;flex-direction:column;justify-content:center;gap:12px;padding:32px;border-left:1px solid var(--line)}
 .feat-kind{font-family:var(--serif);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .feat-title{display:block;line-height:1}.feat-title .arr{margin-left:8px}
 .feat-name{font-family:var(--display);font-weight:700;font-size:34px;line-height:1}
