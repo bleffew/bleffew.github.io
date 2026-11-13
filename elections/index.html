@@ -89,6 +89,8 @@ button:disabled { color: var(--muted); cursor: default; }
 .check-note { flex-basis: 100%; min-height: 20px; color: var(--muted); font-size: 14px; margin: 0; }
 body[data-archive] .check-note { visibility: hidden; }
 .pill[data-state="final"] .dot { background: var(--fg); }
+.pill[data-state="upcoming"] .dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
+#closest .closest-empty { display: block; color: var(--muted); font-size: 14px; }
 .yearbar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; padding: 8px 0; background: var(--bg); border-bottom: 1px solid var(--line); }
 .y-row { display: flex; align-items: center; gap: 6px; }
 .y-step { width: 36px; height: 36px; padding: 0; font-size: 22px; line-height: 1; }
@@ -376,6 +378,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       </section>
       <section>
         <h2>Where the numbers come from</h2>
+        <p class="src" id="srcUpcoming" hidden>Seats not on the ballot come from 2024 results and 2026 races called so far. Governors elected in 2025 and up in 2027 are listed as they stand today.</p>
         <p class="src" id="srcArchive" hidden>Past results: <a href="https://electionlab.mit.edu/data" target="_blank" rel="noopener">MIT Election Data + Science Lab</a> for House, Senate and president votes, <a href="https://github.com/unitedstates/congress-legislators" target="_blank" rel="noopener">congress-legislators</a> for who held each seat, and Wikipedia for governors and 2024 House shares.</p>
         <p class="src" id="srcLive">Results and race calls: <a href="https://civicapi.org" target="_blank" rel="noopener">civicAPI</a>, <span id="checkEvery">checked every minute</span>.</p>
         <p class="src" id="oddsSource">Market odds: <a href="https://kalshi.com/category/elections" target="_blank" rel="noopener">Kalshi</a> last trades, updated from time to time.</p>
@@ -410,8 +413,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     return now < FAST_UNTIL ? POLL_MS : now < HALF_HOUR_UNTIL ? 1800000 : 3600000;
   }
   var lastTry = 0, locked = false;
-  var LIVE_YEAR = 2026, YEARS = [2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024, 2026];
-  var DATES = { 2000: "Nov 7, 2000", 2002: "Nov 5, 2002", 2004: "Nov 2, 2004", 2006: "Nov 7, 2006", 2008: "Nov 4, 2008", 2010: "Nov 2, 2010", 2012: "Nov 6, 2012", 2014: "Nov 4, 2014", 2016: "Nov 8, 2016", 2018: "Nov 6, 2018", 2020: "Nov 3, 2020", 2022: "Nov 8, 2022", 2024: "Nov 5, 2024", 2026: "Nov 3, 2026" };
+  var LIVE_YEAR = 2026, YEARS = [2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020, 2022, 2024, 2026, 2028];
+  var DATES = { 2000: "Nov 7, 2000", 2002: "Nov 5, 2002", 2004: "Nov 2, 2004", 2006: "Nov 7, 2006", 2008: "Nov 4, 2008", 2010: "Nov 2, 2010", 2012: "Nov 6, 2012", 2014: "Nov 4, 2014", 2016: "Nov 8, 2016", 2018: "Nov 6, 2018", 2020: "Nov 3, 2020", 2022: "Nov 8, 2022", 2024: "Nov 5, 2024", 2026: "Nov 3, 2026", 2028: "Nov 7, 2028" };
   var year = LIVE_YEAR, ARCHIVE = false, savedView = null, WHO = { D: [], I: [], R: [] }, GOV_WHO = {}, GOV_BASE_IND = 0, GOV_UP = 36, liveModel = null, presData = null, jsonCache = {}, yearToken = 0;
   var NS = "http://www.w3.org/2000/svg";
   var CX = 500, Y_SENATE = 515, Y_HOUSE = 545;
@@ -650,9 +653,43 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     });
     model = m;
   }
+  var UPCOMING = false, UP_WHO = {}, PENDING = [], GOV_PENDING = {}, UP_HELD = {};
+  var OFF_YEAR_GOV = { NJ: ["Mikie Sherrill", "D", 2025], VA: ["Abigail Spanberger", "D", 2025], KY: ["Andy Beshear", "D", 2027], LA: ["Jeff Landry", "R", 2027], MS: ["Tate Reeves", "R", 2027] };
+  function installUpcoming(d24) {
+    var live = liveModel || { senate: {}, gov: {} };
+    HELD_D = []; HELD_I = []; HELD_R = []; UP = []; WHO = { D: [], I: [], R: [] }; UP_WHO = {}; UP_HELD = {}; PENDING = [];
+    var class2 = {};
+    d24.s.forEach(function (o) { if (o.cls === 2) class2[o.st] = true; });
+    function hold(st, n, p) { (p === "D" ? HELD_D : p === "I" ? HELD_I : HELD_R).push(st); WHO[p].push(n); }
+    d24.s.slice().sort(function (a, b) { return a.st.localeCompare(b.st); }).forEach(function (o) {
+      if (o.cls === 1) hold(o.st, o.n, o.p);
+      else if (o.cls === 2) {
+        var r = live.senate[o.st];
+        if (r && r.win) hold(o.st, r.win.name, r.win.p); else PENDING.push(o.st);
+      } else {
+        var sp = !class2[o.st] && live.senate[o.st];
+        UP.push(o.st);
+        UP_WHO[o.st] = sp ? (sp.win ? sp.win.name : "") : o.n;
+        UP_HELD[o.st] = sp ? (sp.win ? sp.win.p : "") : o.p;
+      }
+    });
+    BASE_DEM = HELD_D.length + HELD_I.length; BASE_REP = HELD_R.length;
+    GOV_HELD = {}; GOV_WHO = {}; GOV_PENDING = {}; GOV_BASE_DEM = 0; GOV_BASE_REP = 0; GOV_BASE_IND = 0; GOV_UP = 0;
+    Object.keys(d24.g).forEach(function (st) {
+      var o = d24.g[st], r = live.gov[st], off = OFF_YEAR_GOV[st], p, n;
+      if (o.up) { GOV_UP++; UP_WHO["G" + st] = o.n; UP_HELD["G" + st] = o.p; return; }
+      if (off) { n = off[0]; p = off[1]; }
+      else if (r && r.win) { n = r.win.name; p = r.win.p; }
+      else { GOV_PENDING[st] = true; return; }
+      GOV_HELD[st] = p; GOV_WHO[st] = n;
+      if (p === "D") GOV_BASE_DEM++; else if (p === "R") GOV_BASE_REP++; else GOV_BASE_IND++;
+    });
+    model = { house: [], senate: {}, gov: {} };
+  }
   function restoreLive() {
     HELD_D = LIVE_SEATS.HELD_D; HELD_I = LIVE_SEATS.HELD_I; HELD_R = LIVE_SEATS.HELD_R; UP = LIVE_SEATS.UP;
     BASE_DEM = LIVE_SEATS.BASE_DEM; BASE_REP = LIVE_SEATS.BASE_REP; WHO = { D: [], I: [], R: [] };
+    PENDING = []; GOV_PENDING = {}; UP_WHO = {}; UP_HELD = {};
     GOV_HELD = LIVE_GOV.GOV_HELD; GOV_BASE_DEM = LIVE_GOV.GOV_BASE_DEM; GOV_BASE_REP = LIVE_GOV.GOV_BASE_REP; GOV_BASE_IND = 0; GOV_WHO = {}; GOV_UP = 36;
     model = liveModel || { house: [], senate: {}, gov: {} };
   }
@@ -757,7 +794,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     });
     hBlock.d.textContent = dem; hBlock.r.textContent = rep;
     var open = 435 - dem - rep - other;
-    hBlock.n.textContent = ARCHIVE ? (open ? open + " vacant · " : "") + "218 for control" : open + " uncalled · 218 for control";
+    hBlock.n.textContent = UPCOMING ? "435 on the ballot · 218 for control" : ARCHIVE ? (open ? open + " vacant · " : "") + "218 for control" : open + " uncalled · 218 for control";
     return { dem: dem, rep: rep, open: open, aheadD: aheadD, aheadR: aheadR };
   }
 
@@ -770,8 +807,9 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     var seq = [];
     HELD_D.forEach(function (st, i) { seq.push({ st: st, cls: "dem-dim", who: WHO.D[i], text: NAMES[st] + ": not on the ballot this year. Held by a Democrat." }); });
     HELD_I.forEach(function (st, i) { seq.push({ st: st, cls: "ind-dim", who: WHO.I[i], text: NAMES[st] + ": not on the ballot this year. Held by an independent who caucuses with Democrats." }); });
+    PENDING.forEach(function (st) { seq.push({ st: st, cls: "open", pending: true, text: NAMES[st] + ": 2026 race not called yet." }); });
     left.concat(missing.map(function (st) { return { missing: st }; }), right).forEach(function (r) {
-      if (r.missing) { seq.push({ st: r.missing, cls: "open", text: NAMES[r.missing] + ": no data yet." }); return; }
+      if (r.missing) { seq.push({ st: r.missing, cls: "open", up: UPCOMING, who: UP_WHO[r.missing], upHeld: UP_HELD[r.missing], text: NAMES[r.missing] + (UPCOMING ? ": on the ballot " + DATES[year] + "." : ": no data yet.") }); return; }
       var was = UP_WAS_D.indexOf(r.st) >= 0 ? "D" : "R", flip = r.past ? r.flip : !!r.win && r.win.p !== was;
       if (r.win) { if (r.win.p === "D") dem++; else if (r.win.p === "R") rep++; else ind++; }
       if (flip) flips.push({ st: r.st, win: r.win, kind: "Senate" });
@@ -799,7 +837,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     if (ARCHIVE) { dem += ind; ind = 0; }
     sBlock.d.textContent = dem; sBlock.r.textContent = rep;
     var open = 100 - dem - rep - ind;
-    sBlock.n.textContent = ARCHIVE ? "51 for control" : open + " uncalled · 51 for control";
+    sBlock.n.textContent = UPCOMING ? UP.length + " on the ballot · 51 for control" : ARCHIVE ? "51 for control" : open + " uncalled · 51 for control";
     return { dem: dem, rep: rep, ind: ind, open: open, flips: flips };
   }
 
@@ -810,6 +848,8 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       if (held) {
         cls = held === "D" ? "dem-dim" : held === "I" ? "ind-dim" : "rep-dim";
         text = NAMES[st] + ": not on the ballot this year. Held by a " + partyName(held) + ".";
+      } else if (UPCOMING) {
+        cls = "open"; text = NAMES[st] + (GOV_PENDING[st] ? ": 2026 race not called yet." : ": on the ballot " + DATES[year] + ".");
       } else if (!r) {
         cls = "open"; text = NAMES[st] + ": no data yet.";
       } else {
@@ -829,7 +869,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       setClass(s, cls, flip ? "flip" : "");
       s.l.setAttribute("class", lab);
       s.text = text;
-      s.info = { st: st, held: held, race: r || null, flip: flip, priced: priced, who: GOV_WHO[st] };
+      s.info = { st: st, held: held, race: r || null, flip: flip, priced: priced, who: GOV_WHO[st] || UP_WHO["G" + st], up: UPCOMING && !held && !GOV_PENDING[st], pending: !!GOV_PENDING[st], upHeld: UP_HELD["G" + st] };
       s.g.classList.toggle("sel", r ? selected === r.key : tipSlot === s);
       s.g.setAttribute("aria-label", text);
       paintOdds(s, o, priced);
@@ -844,7 +884,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     nI += GOV_BASE_IND;
     var dem = GOV_BASE_DEM + nD, rep = GOV_BASE_REP + nR;
     gBlock.d.textContent = dem; gBlock.r.textContent = rep;
-    gBlock.n.textContent = ARCHIVE ? GOV_UP + " on the ballot" : (50 - dem - rep - nI) + " uncalled · 36 on the ballot";
+    gBlock.n.textContent = UPCOMING ? GOV_UP + " on the ballot" : ARCHIVE ? GOV_UP + " on the ballot" : (50 - dem - rep - nI) + " uncalled · 36 on the ballot";
     return { dem: dem, rep: rep, ind: nI, open: 50 - dem - rep - nI, flips: flips };
   }
 
@@ -856,6 +896,12 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     return n + end;
   }
   function presModel(st) {
+    if (UPCOMING && presData) {
+      var e24 = presData.e[2024], s24 = e24.st[st];
+      if (!s24) return null;
+      var w24 = e24.t.filter(function (t) { return t.p === s24[0]; })[0];
+      return { y2: year, ev: s24[3], race: null, last: { n: w24.n, p: w24.p } };
+    }
     var y2 = year % 4 === 0 ? year : year - 2, e = presData && presData.e[y2], s = e && e.st[st];
     if (!s) return null;
     var byP = {};
@@ -868,7 +914,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   function tipModel(slot) {
     if (slot.pres) {
       var pm = presModel(slot.st);
-      return pm ? { kind: "President · " + pm.y2 + " · " + pm.ev + " electoral votes", title: st_name(slot.st), race: pm.race } : null;
+      return pm ? { kind: "President · " + pm.y2 + " · " + pm.ev + " electoral votes", title: st_name(slot.st), race: pm.race, last: pm.last } : null;
     }
     if (slot.race !== undefined) {
       var hr = slot.race;
@@ -879,7 +925,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     var v = slot.info;
     if (!v) return null;
     var map = slot.gov ? (oddsData.gov || {}) : (oddsData.senate || {});
-    return { kind: slot.gov ? "Governor" : "Senate", title: NAMES[v.st], race: v.race || null, flip: v.flip, held: slot.gov ? v.held : !v.race && /dim$/.test(v.cls) ? v.cls.charAt(0).toUpperCase() : null, odds: map[v.st], priced: v.priced };
+    return { kind: slot.gov ? "Governor" : "Senate", title: NAMES[v.st], race: v.race || null, flip: v.flip, up: v.up, pending: v.pending, upHeld: v.upHeld, held: slot.gov ? v.held : !v.race && /dim$/.test(v.cls) ? v.cls.charAt(0).toUpperCase() : null, odds: map[v.st], priced: v.priced };
   }
   function fillTip(slot) {
     var m = tipModel(slot), who = slot.info && slot.info.who;
@@ -889,8 +935,15 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     var st = $("tipStatus"), rows = $("tipRows"), r = m.race, foot = "";
     rows.textContent = "";
     st.style.color = "";
-    if (!r) {
+    if (!r && (m.up || m.last || m.pending)) {
+      st.textContent = m.pending ? "Still counting from 2026" : "On the ballot " + DATES[year];
+      if (m.last) foot = "2024: won by " + m.last.n + " (" + m.last.p + ").";
+      else if (m.up && who) foot = "Now held by " + who + " (" + m.upHeld + ").";
+      else if (m.pending) foot = "This 2026 race hasn't been called.";
+    } else if (!r) {
       st.textContent = m.held ? "Not on the ballot in " + year : "No data yet";
+      var off = UPCOMING && slot.gov && OFF_YEAR_GOV[slot.info.st];
+      if (off && off[2] > LIVE_YEAR) st.textContent = "Up for election in " + off[2];
       if (m.held) foot = "Held by " + (who ? who + " (" + m.held + ")" : m.held === "I" ? "an independent who caucuses with Democrats" : "a " + partyName(m.held)) + ".";
     } else {
       var shown = r.c.filter(function (k) { return k.votes > 0; }).slice(0, 3);
@@ -1010,6 +1063,10 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     var box = $("control"); box.textContent = "";
     function line(name, dem, rep, need, open) {
       var p = document.createElement("p"); p.className = "control";
+      if (UPCOMING) {
+        p.textContent = name + ": " + (name === "House" ? "all 435 seats" : UP.length + " seats") + " on the ballot." + (name === "House" ? "" : " Seats not up: Democrats " + dem + ", Republicans " + rep + "." + (PENDING.length ? " " + PENDING.length + " still counting from 2026." : ""));
+        box.appendChild(p); return;
+      }
       var top = ARCHIVE ? (dem >= need ? "Democratic majority." : rep >= need ? "Republican majority." : "Evenly divided.") : dem >= need ? "Democrats have reached " + need + "." : rep >= need ? "Republicans have reached " + need + "." : open + " uncalled.";
       p.textContent = name + ": Democrats " + dem + ", Republicans " + rep + ". " + top;
       box.appendChild(p);
@@ -1017,23 +1074,24 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     if (sections.c) { line("Senate", s.dem, s.rep, 51, s.open); line("House", h.dem, h.rep, 218, h.open); }
     if (sections.p && presData) {
       var pp = document.createElement("p"); pp.className = "control";
-      if (year % 4 === 0) { var pt = presData.e[year].t; pp.textContent = "President: " + lastName(pt[0].n) + " " + pt[0].ev + ", " + lastName(pt[1].n) + " " + pt[1].ev + " electoral votes."; }
+      if (UPCOMING) pp.textContent = "President: on the ballot " + DATES[year] + ". 270 electoral votes to win.";
+      else if (year % 4 === 0) { var pt = presData.e[year].t; pp.textContent = "President: " + lastName(pt[0].n) + " " + pt[0].ev + ", " + lastName(pt[1].n) + " " + pt[1].ev + " electoral votes."; }
       else pp.textContent = "President: " + presData.o[year][0] + " in office.";
       box.appendChild(pp);
     }
     var p = document.createElement("p"); p.className = "control";
-    p.textContent = "Governors: Democrats " + g.dem + ", Republicans " + g.rep + (ARCHIVE ? (g.ind ? ", independents " + g.ind : "") + "." : ". " + g.open + " uncalled.");
+    p.textContent = UPCOMING ? "Governors: " + GOV_UP + " on the ballot. Not up: Democrats " + g.dem + ", Republicans " + g.rep + "." : "Governors: Democrats " + g.dem + ", Republicans " + g.rep + (ARCHIVE ? (g.ind ? ", independents " + g.ind : "") + "." : ". " + g.open + " uncalled.");
     if (sections.g) box.appendChild(p);
     var n = document.createElement("p"); n.className = "note";
     n.hidden = !sections.c && !sections.g;
-    n.textContent = ARCHIVE ? "Counts include seats not on the ballot." + (sections.c ? " Senate independents are counted with the Democrats they caucused with." : "") : "Counts come from civicAPI's race calls and include seats not on the ballot.";
+    n.textContent = UPCOMING ? "No votes have been cast. Counts show seats that aren't on the ballot, with Senate independents counted with Democrats." : ARCHIVE ? "Counts include seats not on the ballot." + (sections.c ? " Senate independents are counted with the Democrats they caucused with." : "") : "Counts come from civicAPI's race calls and include seats not on the ballot.";
     box.appendChild(n);
   }
   function renderLists(m, flips) {
     var ul = $("flips"); ul.textContent = "";
     flips = flips.filter(function (f) { return f.kind === "Senate" ? sections.c : sections.g; });
     var pf = [], pc = [];
-    if (sections.p && presData && year % 4 === 0) {
+    if (sections.p && presData && year % 4 === 0 && !UPCOMING) {
       var prior = presData.e[year - 4];
       Object.keys(presSlots).sort().forEach(function (st) {
         var pm = presModel(st);
@@ -1062,9 +1120,10 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     ).filter(function (x) { return ARCHIVE ? x.r.win && x.r.c[1] : !x.r.win && x.r.lead; }).sort(function (a, b) { return a.r.margin - b.r.margin; }).slice(0, 12);
     var c = $("closest"); c.textContent = "";
     open.forEach(function (x) { listRow(c, x.tag, (ARCHIVE ? x.r.win : x.r.lead).p, x.kind + " · " + count(x.r)); });
+    if (UPCOMING) { var li = document.createElement("li"); li.className = "closest-empty"; li.textContent = "Results start " + DATES[year] + "."; c.appendChild(li); }
     $("closestTitle").textContent = ARCHIVE ? "Closest races" : "Closest uncalled races";
     $("closestNote").hidden = ARCHIVE;
-    $("flipsEmpty").textContent = ARCHIVE ? "No Senate or governor seats flipped." : "No flips called yet.";
+    $("flipsEmpty").textContent = UPCOMING ? "No results yet." : ARCHIVE ? "No Senate or governor seats flipped." : "No flips called yet.";
   }
 
   // Majority bars: Democrats fill from the left, Republicans from the right, and the dashed line marks the seats needed.
@@ -1129,6 +1188,23 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
 
   function renderPres() {
     if (!presData) return;
+    if (UPCOMING) {
+      Object.keys(presSlots).forEach(function (st) {
+        var s = presSlots[st];
+        setClass(s, "open", "");
+        s.l.setAttribute("class", s.base);
+        s.g.setAttribute("aria-label", st_name(st) + ": on the ballot " + DATES[year] + ".");
+      });
+      pBlock.d.textContent = 0; pBlock.r.textContent = 0;
+      pBlock.n.textContent = "270 to win";
+      setBar("pres", 0, 0, 0, 538);
+      var tk = $("tickets"); tk.textContent = "";
+      ["Nominees not chosen yet.", "Electoral votes per state stay as they were in 2024 until the 2030 census."].forEach(function (t) {
+        var li = document.createElement("li"); li.textContent = t; tk.appendChild(li);
+      });
+      presSvg.setAttribute("aria-label", "President " + year + ": not voted yet. 270 electoral votes to win.");
+      return;
+    }
     var isPres = year % 4 === 0, y2 = isPres ? year : year - 2, e = presData.e[y2], prior = presData.e[y2 - 4], dem = 0, rep = 0;
     e.t.forEach(function (t) { if (t.p === "D") dem = t.ev; else rep = t.ev; });
     Object.keys(presSlots).forEach(function (st) {
@@ -1270,6 +1346,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       if (!next.house.length) throw new Error("empty");
       liveModel = next;
       if (!ARCHIVE) { model = next; render(); }
+      else if (UPCOMING && jsonCache["2024"]) { installUpcoming(jsonCache["2024"]); quiet = true; render(); quiet = false; }
       firstData = false;
       lastOk = Date.now(); failed = false;
       locked = allIn(next);
@@ -1292,6 +1369,10 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   function tick() {
     var pill = $("pill"), text = $("pillText");
     if (busy && !ARCHIVE) { pill.dataset.state = "busy"; text.textContent = lastOk ? "Checking for updates" : "Loading results"; return; }
+    if (UPCOMING) {
+      var days = Math.ceil((Date.parse("2028-11-07T00:00:00-08:00") - Date.now()) / 86400000);
+      pill.dataset.state = "upcoming"; text.textContent = "Upcoming · " + days + " days away"; return;
+    }
     if (ARCHIVE || locked) { pill.dataset.state = "final"; text.textContent = ARCHIVE ? "Final results" : "Final"; return; }
     if (!lastOk) { pill.dataset.state = "stale"; text.textContent = "Waiting for results"; return; }
     var secs = Math.max(0, Math.round((Date.now() - lastOk) / 1000));
@@ -1320,7 +1401,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   function syncChrome() {
     document.body.toggleAttribute("data-archive", ARCHIVE);
     $("checkBtn").style.visibility = ARCHIVE || locked ? "hidden" : "";
-    $("srcLive").hidden = ARCHIVE; $("oddsSource").hidden = ARCHIVE; $("srcArchive").hidden = !ARCHIVE;
+    $("srcLive").hidden = ARCHIVE; $("oddsSource").hidden = ARCHIVE; $("srcArchive").hidden = !ARCHIVE || UPCOMING; $("srcUpcoming").hidden = !UPCOMING;
     setCadence();
     tick();
   }
@@ -1329,21 +1410,21 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
     $("ySelect").value = y; $("ySlider").value = i;
     var list = navYears(), k = list.indexOf(y);
     $("yPrev").disabled = k <= 0; $("yNext").disabled = k === list.length - 1;
-    $("yKind").textContent = $("yKindHead").textContent = kind + " · " + DATES[y] + (y === LIVE_YEAR ? " · Live" : "");
+    $("yKind").textContent = $("yKindHead").textContent = kind + " · " + DATES[y] + (y === LIVE_YEAR ? " · Live" : y > LIVE_YEAR ? " · Upcoming" : "");
     Array.prototype.forEach.call($("yTicks").children, function (b, k) { b.setAttribute("aria-current", k === i ? "true" : "false"); });
   }
   function selectYear(y) {
     var t = ++yearToken;
     syncYearControls(y);
-    (y === LIVE_YEAR ? Promise.resolve(null) : loadJson(String(y))).then(function (d) {
+    (y === LIVE_YEAR ? Promise.resolve(null) : loadJson(String(y > LIVE_YEAR ? 2024 : y))).then(function (d) {
       if (t !== yearToken) return;
       closeTip();
-      year = y; ARCHIVE = y !== LIVE_YEAR;
+      year = y; ARCHIVE = y !== LIVE_YEAR; UPCOMING = y > LIVE_YEAR;
       if (ARCHIVE) {
         if (savedView === null) savedView = view;
         view = "results"; document.body.dataset.view = "results";
         $("viewResults").setAttribute("aria-pressed", "true"); $("viewOdds").setAttribute("aria-pressed", "false");
-        installYear(d);
+        if (UPCOMING) installUpcoming(d); else installYear(d);
       } else {
         restoreLive();
         if (savedView !== null) { view = savedView; savedView = null; document.body.dataset.view = view; $("viewResults").setAttribute("aria-pressed", view === "results"); $("viewOdds").setAttribute("aria-pressed", view === "odds"); }
@@ -1355,7 +1436,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       syncUrl();
       if (due()) poll(false);
       var i = YEARS.indexOf(y);
-      [YEARS[i - 1], YEARS[i + 1]].forEach(function (n) { if (n && n !== LIVE_YEAR) loadJson(String(n)).catch(function () {}); });
+      [YEARS[i - 1], YEARS[i + 1]].forEach(function (n) { if (n && n < LIVE_YEAR) loadJson(String(n)).catch(function () {}); });
     }).catch(function () { syncYearControls(year); setNote("Couldn't load that election.", false); });
   }
   // Section switches. At least one stays on, and hidden sections keep updating so turning one back on is instant.
