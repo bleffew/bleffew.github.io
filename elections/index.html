@@ -316,7 +316,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
       <button type="button" id="secBtnP" data-sec="p" aria-label="President" aria-pressed="true">Pres<span class="long">ident</span></button>
     </div>
     <div class="y-track">
-      <input type="range" id="ySlider" min="0" max="13" step="1" aria-label="Election year">
+      <input type="range" id="ySlider" min="0" max="14" step="1" aria-label="Election year">
       <div class="y-ticks" id="yTicks"></div>
     </div>
   </nav>
@@ -1481,6 +1481,7 @@ h2 { font: 600 15px var(--serif); letter-spacing: .08em; text-transform: upperca
   Array.prototype.forEach.call(document.querySelectorAll(".y-sections button"), function (b) {
     b.addEventListener("click", function () { sections[b.dataset.sec] = !sections[b.dataset.sec]; applySections(true); });
   });
+  $("ySlider").max = YEARS.length - 1;
   YEARS.slice().reverse().forEach(function (y) {
     var o = document.createElement("option"); o.value = y; o.textContent = y; $("ySelect").appendChild(o);
   });
